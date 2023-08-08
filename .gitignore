@@ -6,6 +6,7 @@ config.py
 # C extensions
 *.so
 img_compare/
+img/
 # Distribution / packaging
 .Python
 build/
