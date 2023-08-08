@@ -3,8 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 config.py
-img/
-img_compare/
 # C extensions
 *.so
 
