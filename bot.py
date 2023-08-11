@@ -2,8 +2,6 @@ import os
 import pathlib
 from io import IOBase
 
-from aiogram.types import ContentType
-
 from simple_facerec import SimpleFacerec
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import  MemoryStorage
@@ -13,7 +11,6 @@ import markups as nav
 import aiogram.utils.markdown as aum
 import PostgreSQL
 from config import token
-import cv2
 
 TOKEN = token
 
@@ -39,7 +36,8 @@ async def start_handler(message: types.Message):
     else:
         print("Не реєструємо")
     await message.reply(aum.text(
-        aum.text("Hi"),
+        aum.text("Hi! I am going to help you with face recognition!\n"),
+        aum.text("There are two functions: you can add people and recognize them")
     ), reply_markup=nav.MainMenu
     )
 
@@ -101,6 +99,10 @@ async def get_photo(message: types.Message, state: FSMContext):
         os.remove("img_check/" + str(name) + ".jpg")
         await state.finish()
         await message.answer("Oops! I didn't find a person on your photo :/ Try again!", reply_markup=nav.MainMenu)
+    elif len(face_names) > 1:
+        os.remove("img_check/" + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Oops! There is more than 1 person on this image. Maybe you wanted to recognize them?", reply_markup=nav.MainMenu)
     else:
         os.remove("img_check/" + str(name) + ".jpg")
         await state.finish()
@@ -143,8 +145,6 @@ async def get_photo_to_recognize(message: types.Message, state: FSMContext):
     sfr = SimpleFacerec()
     sfr.load_encoding_images("img/")
     face_locations, face_names = sfr.detect_known_faces("img_compare/"+str(message['from']['id'])+".jpg")
-    #for face_loc, name in zip(face_locations, face_names):
-    #    print(face_loc)
     l = len(face_names)
     await message.bot.send_message(message.from_user.id, f"I found {l} people! And i found this person(s): {face_names}", reply_markup=nav.MainMenu)
     await state.finish()
