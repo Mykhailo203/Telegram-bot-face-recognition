@@ -23,6 +23,12 @@ class Reg(StatesGroup):
 class ImageCompare(StatesGroup):
     image = State()
 
+
+class ImageUpdate(StatesGroup):
+    new_name = State()
+    new_image = State()
+
+
 bot = Bot(TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
@@ -148,6 +154,84 @@ async def get_photo_to_recognize(message: types.Message, state: FSMContext):
     l = len(face_names)
     await message.bot.send_message(message.from_user.id, f"I found {l} people! And i found this person(s): {face_names}", reply_markup=nav.MainMenu)
     await state.finish()
+
+@dp.message_handler(text="Update Image")
+async def update_photo(message: types.Message):
+    await message.answer("Write a new name for your person(if you don't want to change it just send 'same as last')", reply_markup=types.ReplyKeyboardRemove())
+    await ImageUpdate.new_name.set()
+
+
+@dp.message_handler(state=ImageUpdate.new_name, content_types=types.ContentTypes.ANY)
+async def get_new_photo_name(message: types.Message, state: FSMContext):
+    if message.sticker:
+        await message.answer("I need name of a person...", reply_markup=nav.MainMenu)
+        await state.finish()
+    elif message.text:
+        await state.update_data(new_name=message.text)
+        await message.answer("Thank you! Upload a photo of a person!")
+        await ImageUpdate.new_image.set()
+    else:
+        await message.answer("I need name of a person...", reply_markup=nav.MainMenu)
+        await state.finish()
+
+
+@dp.message_handler(state=ImageUpdate.new_image, content_types=['photo'])
+async def get_new_photo(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        name = data["new_name"]
+        image = message.photo
+
+    async def _prepare_destination(self, destination, make_dirs):
+        file = await self.get_file()
+
+        if destination is None:
+            return file, destination
+
+        if isinstance(destination, IOBase):
+            return file, destination
+
+        if not isinstance(destination, (str, pathlib.Path)):
+            raise TypeError("destination must be str, pathlib.Path or io.IOBase type")
+
+        if make_dirs:
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+
+        return file, destination
+    await message.photo[-1].download(destination="img_check/" + str(message['from']['id']) + str(name) + ".jpg", make_dirs=False)
+    sfr = SimpleFacerec()
+    sfr.load_encoding_images("img/")
+    face_locations, face_names = sfr.detect_known_faces("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+    if "Unknown" in face_names:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Unknown person. Probably you wanted to add this person?", reply_markup=nav.MainMenu)
+    elif len(face_names) == 0:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Oops! I didn't find a person on your photo :/ Try again!", reply_markup=nav.MainMenu)
+    elif len(face_names) > 1:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Oops! There is more than 1 person on this image. Maybe you wanted to recognize them?", reply_markup=nav.MainMenu)
+    else:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        if name == 'same as last':
+            real_name = face_names[0]
+            await message.photo[-1].download(destination="img/" + str(real_name) + ".jpg",
+                                             make_dirs=False)
+            await state.finish()
+            await message.answer(
+                f"Photo was updated successfully with {real_name} name",
+                reply_markup=nav.MainMenu)
+        else:
+            real_name = face_names[0]
+            os.remove("img/" + str(real_name) + ".jpg")
+            await message.photo[-1].download(destination="img/" + str(name) + ".jpg",
+                                             make_dirs=False)
+            await state.finish()
+            await message.answer(
+                f"Photo was updated successfully with {name} name",
+                reply_markup=nav.MainMenu)
 
 
 if __name__ == "__main__":
