@@ -306,26 +306,26 @@ async def get_photo(message: types.Message, state: FSMContext):
 
         return file, destination
 
-    await message.photo[-1].download(destination="img_check/" + str(name) + ".jpg", make_dirs=False)
+    await message.photo[-1].download(destination="img_check/" + str(message['from']['id']) + ".jpg", make_dirs=False)
     sfr = SimpleFacerec()
     sfr.load_encoding_images("img/")
-    face_locations, face_names = sfr.detect_known_faces("img_check/" + str(name) + ".jpg")
+    face_locations, face_names = sfr.detect_known_faces("img_check/" + str(message['from']['id']) + ".jpg")
     if "Unknown" in face_names:
-        os.remove("img_check/" + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + ".jpg")
         await message.photo[-1].download(destination="img/" + str(name) + ".jpg", make_dirs=False)
         await state.finish()
         await message.answer("Дякую! Фото було успішно завантажено!", reply_markup=nav.MainMenu_ukr)
     elif len(face_names) == 0:
-        os.remove("img_check/" + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + ".jpg")
         await state.finish()
         await message.answer("Упс! Я не знайшов людини на вашому фото:( Спробуйте ще раз", reply_markup=nav.MainMenu_ukr)
     elif len(face_names) > 1:
-        os.remove("img_check/" + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + ".jpg")
         await state.finish()
         await message.answer("Упс! На цьому фото більш ніж одна людина, можливо ви хотіли розпізнати їх?",
                              reply_markup=nav.MainMenu_ukr)
     else:
-        os.remove("img_check/" + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + ".jpg")
         await state.finish()
         await message.answer("Упс! Ця людина вже була додана! Можливо ви хотіли оновити інформацію про цю людину?",
                              reply_markup=nav.MainMenu_ukr)
@@ -418,26 +418,26 @@ async def get_new_photo(message: types.Message, state: FSMContext):
 
         return file, destination
 
-    await message.photo[-1].download(destination="img_check/" + str(message['from']['id']) + str(name) + ".jpg",
+    await message.photo[-1].download(destination="img_check/" + str(message['from']['id']) + str(message['from']['id']) + ".jpg",
                                      make_dirs=False)
     sfr = SimpleFacerec()
     sfr.load_encoding_images("img/")
-    face_locations, face_names = sfr.detect_known_faces("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+    face_locations, face_names = sfr.detect_known_faces("img_check/" + str(message['from']['id']) + str(message['from']['id']) + ".jpg")
     if "Unknown" in face_names:
-        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + str(message['from']['id']) + ".jpg")
         await state.finish()
         await message.answer("Невідома людина! Можливо ви хотіли додати цю людину?", reply_markup=nav.MainMenu_ukr)
     elif len(face_names) == 0:
-        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + str(message['from']['id']) + ".jpg")
         await state.finish()
         await message.answer("Упс! Я не знайшов людини на вашому фото:( Спробуйте ще раз!", reply_markup=nav.MainMenu_ukr)
     elif len(face_names) > 1:
-        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + str(message['from']['id']) + ".jpg")
         await state.finish()
         await message.answer("Упс! На цьому фото більш ніж одна людина, можливо ви хотіли розпізнати їх?",
                              reply_markup=nav.MainMenu_ukr)
     else:
-        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        os.remove("img_check/" + str(message['from']['id']) + str(message['from']['id']) + ".jpg")
         if name == 'same as last' or 'Same as last':
             real_name = face_names[0]
             await message.photo[-1].download(destination="img/" + str(real_name) + ".jpg",
