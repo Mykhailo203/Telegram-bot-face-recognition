@@ -28,6 +28,19 @@ class ImageUpdate(StatesGroup):
     new_name = State()
     new_image = State()
 
+class RegUkr(StatesGroup):
+    state_name = State()
+    state_image = State()
+
+
+class ImageCompareUkr(StatesGroup):
+    image = State()
+
+
+class ImageUpdateUkr(StatesGroup):
+    new_name = State()
+    new_image = State()
+
 
 bot = Bot(TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
@@ -43,9 +56,15 @@ async def start_handler(message: types.Message):
         print("Не реєструємо")
     await message.reply(aum.text(
         aum.text("Hi! I am going to help you with face recognition!\n"),
-        aum.text("There are two functions: you can add people and recognize them")
-    ), reply_markup=nav.MainMenu
+        aum.text("There are three functions: you can add people, recognize them, and update already added person's info!\n"),
+        aum.text("Choose a language you would be comfortable with.")
+    ), reply_markup=nav.ChooseLanguage
     )
+
+#English version
+@dp.message_handler(text="Change to english")
+async def english(message: types.Message):
+    await message.answer("English is such a beautiful language! Use buttons to continue", reply_markup=nav.MainMenu)
 
 
 @dp.message_handler(text="Add someone's photo")
@@ -215,7 +234,7 @@ async def get_new_photo(message: types.Message, state: FSMContext):
         await message.answer("Oops! There is more than 1 person on this image. Maybe you wanted to recognize them?", reply_markup=nav.MainMenu)
     else:
         os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
-        if name == 'same as last':
+        if name == 'same as last' or 'Same as last':
             real_name = face_names[0]
             await message.photo[-1].download(destination="img/" + str(real_name) + ".jpg",
                                              make_dirs=False)
@@ -228,10 +247,214 @@ async def get_new_photo(message: types.Message, state: FSMContext):
             os.remove("img/" + str(real_name) + ".jpg")
             await message.photo[-1].download(destination="img/" + str(name) + ".jpg",
                                              make_dirs=False)
-            await state.finish()
             await message.answer(
                 f"Photo was updated successfully with {name} name",
                 reply_markup=nav.MainMenu)
+            await state.finish()
+
+
+# Ukrainian version
+@dp.message_handler(text="Змінити на українську")
+async def english(message: types.Message):
+    await message.answer("Українська-солов'їна. Використовуйте кнопки щоб продовжити", reply_markup=nav.MainMenu_ukr)
+
+
+@dp.message_handler(text="Додати людину")
+async def get_photo(message: types.Message):
+    await message.answer("Привіт! Введи ім'я людини", reply_markup=types.ReplyKeyboardRemove())
+    await RegUkr.state_name.set()
+
+
+@dp.message_handler(state=RegUkr.state_name, content_types=types.ContentTypes.ANY)
+async def get_photo_name(message: types.Message, state: FSMContext):
+    try:
+        if message.sticker:
+            await message.answer("Мені треба ім'я!", reply_markup=nav.MainMenu_ukr)
+            await state.finish()
+        elif message.text:
+            await state.update_data(state_name=message.text)
+            await message.answer("Гарне ім'я! Завантажте фото людини")
+            await RegUkr.state_image.set()
+        else:
+            await message.answer("Мені треба ім'я!", reply_markup=nav.MainMenu_ukr)
+            await state.finish()
+    except:
+        await message.answer("Ім'я можна вводити тільки англійською. Вибачаюсь за незручності!:(")
+        await state.finish()
+
+
+@dp.message_handler(state=RegUkr.state_image, content_types=['photo'])
+async def get_photo(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        name = data["state_name"]
+        image = message.photo
+
+    async def _prepare_destination(self, destination, make_dirs):
+        file = await self.get_file()
+
+        if destination is None:
+            return file, destination
+
+        if isinstance(destination, IOBase):
+            return file, destination
+
+        if not isinstance(destination, (str, pathlib.Path)):
+            raise TypeError("destination must be str, pathlib.Path or io.IOBase type")
+
+        if make_dirs:
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+
+        return file, destination
+
+    await message.photo[-1].download(destination="img_check/" + str(name) + ".jpg", make_dirs=False)
+    sfr = SimpleFacerec()
+    sfr.load_encoding_images("img/")
+    face_locations, face_names = sfr.detect_known_faces("img_check/" + str(name) + ".jpg")
+    if "Unknown" in face_names:
+        os.remove("img_check/" + str(name) + ".jpg")
+        await message.photo[-1].download(destination="img/" + str(name) + ".jpg", make_dirs=False)
+        await state.finish()
+        await message.answer("Дякую! Фото було успішно завантажено!", reply_markup=nav.MainMenu_ukr)
+    elif len(face_names) == 0:
+        os.remove("img_check/" + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Упс! Я не знайшов людини на вашому фото:( Спробуйте ще раз", reply_markup=nav.MainMenu_ukr)
+    elif len(face_names) > 1:
+        os.remove("img_check/" + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Упс! На цьому фото більш ніж одна людина, можливо ви хотіли розпізнати їх?",
+                             reply_markup=nav.MainMenu_ukr)
+    else:
+        os.remove("img_check/" + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Упс! Ця людина вже була додана! Можливо ви хотіли оновити інформацію про цю людину?",
+                             reply_markup=nav.MainMenu_ukr)
+        print(len(face_names), face_names)
+
+
+@dp.message_handler(text="Розпізнати людину")
+async def start_handler(message: types.Message):
+    await message.reply(aum.text(
+        aum.text("Привіт! Завантаж фотографію людини яку ти хочеш розпізнати."),
+    ), reply_markup=types.ReplyKeyboardRemove()
+    )
+    await ImageCompareUkr.image.set()
+
+
+@dp.message_handler(state=ImageCompareUkr.image, content_types=['photo'])
+async def get_photo_to_recognize(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        image = message.photo
+
+    async def _prepare_destination(self, destination, make_dirs):
+        file = await self.get_file()
+
+        if destination is None:
+            return file, destination
+
+        if isinstance(destination, IOBase):
+            return file, destination
+
+        if not isinstance(destination, (str, pathlib.Path)):
+            raise TypeError("destination must be str, pathlib.Path or io.IOBase type")
+
+        if make_dirs:
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+
+        return file, destination
+
+    await message.photo[-1].download("img_compare/" + str(message['from']['id']) + ".jpg")
+    sfr = SimpleFacerec()
+    sfr.load_encoding_images("img/")
+    face_locations, face_names = sfr.detect_known_faces("img_compare/" + str(message['from']['id']) + ".jpg")
+    l = len(face_names)
+    await message.bot.send_message(message.from_user.id,
+                                   f"Я знайшов {l} людей! А саме їх: {face_names}",
+                                   reply_markup=nav.MainMenu_ukr)
+    await state.finish()
+
+
+@dp.message_handler(text="Оновити інфо про вже додану людину")
+async def update_photo(message: types.Message):
+    await message.answer("Напиши нове ім'я для твоєї людини(Якщо не хочеш міняти ім'я, то просто напиши 'same as last')",
+                         reply_markup=types.ReplyKeyboardRemove())
+    await ImageUpdateUkr.new_name.set()
+
+
+@dp.message_handler(state=ImageUpdateUkr.new_name, content_types=types.ContentTypes.ANY)
+async def get_new_photo_name(message: types.Message, state: FSMContext):
+    if message.sticker:
+        await message.answer("Мені треба ім'я!", reply_markup=nav.MainMenu_ukr)
+        await state.finish()
+    elif message.text:
+        await state.update_data(new_name=message.text)
+        await message.answer("Дякую! Завантаж фото людини")
+        await ImageUpdateUkr.new_image.set()
+    else:
+        await message.answer("Мені треба ім'я!", reply_markup=nav.MainMenu_ukr)
+        await state.finish()
+
+
+@dp.message_handler(state=ImageUpdateUkr.new_image, content_types=['photo'])
+async def get_new_photo(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        name = data["new_name"]
+        image = message.photo
+
+    async def _prepare_destination(self, destination, make_dirs):
+        file = await self.get_file()
+
+        if destination is None:
+            return file, destination
+
+        if isinstance(destination, IOBase):
+            return file, destination
+
+        if not isinstance(destination, (str, pathlib.Path)):
+            raise TypeError("destination must be str, pathlib.Path or io.IOBase type")
+
+        if make_dirs:
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+
+        return file, destination
+
+    await message.photo[-1].download(destination="img_check/" + str(message['from']['id']) + str(name) + ".jpg",
+                                     make_dirs=False)
+    sfr = SimpleFacerec()
+    sfr.load_encoding_images("img/")
+    face_locations, face_names = sfr.detect_known_faces("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+    if "Unknown" in face_names:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Невідома людина! Можливо ви хотіли додати цю людину?", reply_markup=nav.MainMenu_ukr)
+    elif len(face_names) == 0:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Упс! Я не знайшов людини на вашому фото:( Спробуйте ще раз!", reply_markup=nav.MainMenu_ukr)
+    elif len(face_names) > 1:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        await state.finish()
+        await message.answer("Упс! На цьому фото більш ніж одна людина, можливо ви хотіли розпізнати їх?",
+                             reply_markup=nav.MainMenu_ukr)
+    else:
+        os.remove("img_check/" + str(message['from']['id']) + str(name) + ".jpg")
+        if name == 'same as last' or 'Same as last':
+            real_name = face_names[0]
+            await message.photo[-1].download(destination="img/" + str(real_name) + ".jpg",
+                                             make_dirs=False)
+            await state.finish()
+            await message.answer(
+                f"Фото було успішно оновлено з {real_name} ім'ям",
+                reply_markup=nav.MainMenu_ukr)
+        else:
+            real_name = face_names[0]
+            os.remove("img/" + str(real_name) + ".jpg")
+            await message.photo[-1].download(destination="img/" + str(name) + ".jpg",
+                                             make_dirs=False)
+            await message.answer(
+                f"Фото було успішно оновлено з {name} ім'ям",
+                reply_markup=nav.MainMenu_ukr)
+            await state.finish()
 
 
 if __name__ == "__main__":
